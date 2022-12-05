@@ -59,21 +59,27 @@ def main():
 
     # Load data from files into memory
     print("Loading data...")
+
     load_data(directory)
+
     print("Data loaded.")
 
     source = person_id_for_name(input("Name: "))
+
     if source is None:
         sys.exit("Person not found.")
     target = person_id_for_name(input("Name: "))
+
     if target is None:
         sys.exit("Person not found.")
 
     path = shortest_path(source, target)
 
     if path is None:
+
         print("Not connected.")
     else:
+
         degrees = len(path)
         print(f"{degrees} degrees of separation.")
         path = [(None, source)] + path
@@ -83,17 +89,71 @@ def main():
             movie = movies[path[i + 1][0]]["title"]
             print(f"{i + 1}: {person1} and {person2} starred in {movie}")
 
+            
 
 def shortest_path(source, target):
     """
     Returns the shortest list of (movie_id, person_id) pairs
-    that connect the source to the target.
-
+    that connect the source to the target, using BFS.
+    source and target are unique IMDB actor ID's
     If no possible path, returns None.
     """
 
-    # TODO
-    raise NotImplementedError
+
+    # Initialise a QueueFrontierD:
+    start = Node(source, None, None)
+    frontier = QueueFrontier()
+    frontier.add(start)
+
+    
+    # Initialise an empty 
+    explored = set()
+
+    
+    # Loop until a solution 
+    while True:
+
+      
+      if len(explored) % 100 == 0:
+        print(' find solution: ', len(explored))
+        print('Nodes expand in Frontier: ', len(frontier.frontier))
+
+        
+      # Check for empty 
+      if frontier.empty():
+        print('Frontier is Empty - No con bet Actors!')
+        print(len(explored), ' no solution f')
+        return None
+
+      
+      # Otherwise expand the
+      curr_node = frontier.remove()
+      explored.add(curr_node.state)
+
+      for action, state in neighbors_for_person(curr_node.state):
+
+        # If state (actor) 
+        if state == target:
+          print('Solution Found!')
+          print(len(explored), ' find solution!')
+          # Create path from source to target
+          path = []
+          path.append((action, state))
+
+          # Add action and state to path until back to start node
+          while curr_node.parent != None:
+            path.append((curr_node.action, curr_node.state))
+            curr_node = curr_node.parent
+
+          path.reverse()
+
+          return path
+
+
+        #  add the new states to explore to the frontier:
+        if not frontier.contains_state(state) and state not in explored:
+          new_node = Node(state, curr_node, action)
+          frontier.add(new_node)
 
 
 def person_id_for_name(name):
@@ -111,8 +171,9 @@ def person_id_for_name(name):
             name = person["name"]
             birth = person["birth"]
             print(f"ID: {person_id}, Name: {name}, Birth: {birth}")
+
         try:
-            person_id = input("Intended Person ID: ")
+            person_id = input(" Person ID: ")
             if person_id in person_ids:
                 return person_id
         except ValueError:
@@ -133,7 +194,6 @@ def neighbors_for_person(person_id):
         for person_id in movies[movie_id]["stars"]:
             neighbors.add((movie_id, person_id))
     return neighbors
-
 
 if __name__ == "__main__":
     main()
