@@ -1,244 +1,146 @@
-"""
-Tic Tac Toe Player
-"""
+import pygame
+import sys
+import time
 
-import math
-import random
-from custom_errors import InvalidActionError
-from copy import deepcopy
+import tictactoe as ttt
 
-X = "X"
-O = "O"
-EMPTY = None
+pygame.init()
+size = width, height = 600, 400
 
+# Colors
+black = (0, 0, 0)
+white = (255, 255, 255)
 
-def initial_state():
-  """
-  Returns starting state of the board.
-  """
-  return [[EMPTY, EMPTY, EMPTY],
-          [EMPTY, EMPTY, EMPTY],
-          [EMPTY, EMPTY, EMPTY]]
+screen = pygame.display.set_mode(size)
 
+mediumFont = pygame.font.Font("OpenSans-Regular.ttf", 28)
+largeFont = pygame.font.Font("OpenSans-Regular.ttf", 40)
+moveFont = pygame.font.Font("OpenSans-Regular.ttf", 60)
 
-def player(board):
-    """
-    Returns player who has the next turn on a board.
-    """
-    # scanning
+user = None
+board = ttt.initial_state()
+ai_turn = False
 
-    X_count = 0
-    O_count = 0
-    EMPTY_count = 0
+while True:
 
-    for row in board:
-      X_count += row.count(X)
-      O_count += row.count(O)
-      EMPTY_count += row.count(EMPTY)
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            sys.exit()
 
-    # If X has more squares than O, its O's turn so it shoud turn on
-    if X_count > O_count:
-      return O
+    screen.fill(black)
 
-    # Otherwise it is X's turn based on what above
+    # Let user choose a player down
+    if user is None:
+
+        # the titlee
+        title = largeFont.render("Play Tic-Tac-Toe", True, white)
+        titleRect = title.get_rect()
+        titleRect.center = ((width / 2), 50)
+        screen.blit(title, titleRect)
+
+        # here the butunsss
+        playXButton = pygame.Rect((width / 8), (height / 2), width / 4, 50)
+        playX = mediumFont.render("Play as X", True, black)
+        playXRect = playX.get_rect()
+        playXRect.center = playXButton.center
+        pygame.draw.rect(screen, white, playXButton)
+        screen.blit(playX, playXRect)
+
+        playOButton = pygame.Rect(5 * (width / 8), (height / 2), width / 4, 50)
+        playO = mediumFont.render("Play as O", True, black)
+        playORect = playO.get_rect()
+        playORect.center = playOButton.center
+        pygame.draw.rect(screen, white, playOButton)
+        screen.blit(playO, playORect)
+
+        # for check
+        click, _, _ = pygame.mouse.get_pressed()
+        if click == 1:
+            mouse = pygame.mouse.get_pos()
+            if playXButton.collidepoint(mouse):
+                time.sleep(0.2)
+                user = ttt.X
+            elif playOButton.collidepoint(mouse):
+                time.sleep(0.2)
+                user = ttt.O
+
     else:
-      return X
 
+        # here  game board
+        tile_size = 80
+        tile_origin = (width / 2 - (1.5 * tile_size),
+                       height / 2 - (1.5 * tile_size))
+        tiles = []
+        for i in range(3):
+            row = []
+            for j in range(3):
+                rect = pygame.Rect(
+                    tile_origin[0] + j * tile_size,
+                    tile_origin[1] + i * tile_size,
+                    tile_size, tile_size
+                )
+                pygame.draw.rect(screen, white, rect, 3)
 
-def actions(board):
-   """
-    Returns set of all possible actions (i, j) available on the board.
-    """
+                if board[i][j] != ttt.EMPTY:
+                    move = moveFont.render(board[i][j], True, white)
+                    moveRect = move.get_rect()
+                    moveRect.center = rect.center
+                    screen.blit(move, moveRect)
+                row.append(rect)
+            tiles.append(row)
 
-    moves = set()
+        game_over = ttt.terminal(board)
+        player = ttt.player(board)
 
-    for i in range(3):
-      for j in range(3):
-        if board[i][j] == EMPTY:
-          moves.add((i, j))
+        # Showing the title
+        if game_over:
+            winner = ttt.winner(board)
+            if winner is None:
+                title = f"Game Over: Tie."
+            else:
+                title = f"Game Over: {winner} wins."
+        elif user == player:
+            title = f"Play as {user}"
+        else:
+            title = f"Computer thinking..."
+        title = largeFont.render(title, True, white)
+        titleRect = title.get_rect()
+        titleRect.center = ((width / 2), 30)
+        screen.blit(title, titleRect)
 
-    return moves
+        # Check for AI move
+        if user != player and not game_over:
+            if ai_turn:
+                time.sleep(0.5)
+                move = ttt.minimax(board)
+                board = ttt.result(board, move)
+                ai_turn = False
+            else:
+                ai_turn = True
 
+        # Check for a user move
+        click, _, _ = pygame.mouse.get_pressed()
+        if click == 1 and user == player and not game_over:
+            mouse = pygame.mouse.get_pos()
+            for i in range(3):
+                for j in range(3):
+                    if (board[i][j] == ttt.EMPTY and tiles[i][j].collidepoint(mouse)):
+                        board = ttt.result(board, (i, j))
 
-def result(board, action):
-    """
-    Returns the board that results from making move (i, j) on the board.
-    """
+        if game_over:
+            againButton = pygame.Rect(width / 3, height - 65, width / 3, 50)
+            again = mediumFont.render("Play Again", True, black)
+            againRect = again.get_rect()
+            againRect.center = againButton.center
+            pygame.draw.rect(screen, white, againButton)
+            screen.blit(again, againRect)
+            click, _, _ = pygame.mouse.get_pressed()
+            if click == 1:
+                mouse = pygame.mouse.get_pos()
+                if againButton.collidepoint(mouse):
+                    time.sleep(0.2)
+                    user = None
+                    board = ttt.initial_state()
+                    ai_turn = False
 
-    i = action[0]
-    j = action[1]
-
-    # Check move is valid over here
-    if i not in [0, 1, 2] or j not in [0, 1, 2]:
-      raise InvalidActionError(action, board, 'Result function given an invalid board position for action: ')
-    elif board[i][j] != EMPTY:
-      raise InvalidActionError(action, board, 'Result function tried to perform invalid action on occupaied tile: ')
-
-    # Make a deep copy of the board and update with the current player's move:
-    board_copy = deepcopy(board)
-    board_copy[i][j] = player(board)
-
-    return board_copy
-
-
-def winner(board):
-    """
-    Returns the winner of the game, if there is one.
-    """
-
-    # Check rows:
-    for row in board:
-      if row.count(X) == 3:
-        return X
-      if row.count(O) == 3:
-        return O
-
-    # Check columns:
-    for j in range(3):
-      column = ''
-      for i in range(3):
-        column += str(board[i][j])
-
-      if column == 'XXX':
-        return X
-      if column == 'OOO':
-        return O
-
-    # Check Diagonals here
-    diag1 = ''
-    diag2 = ''
-    j = 2
-
-    for i in range(3):
-      diag1 += str(board[i][i])
-      diag2 += str(board[i][j])
-      j -= 1
-
-    if diag1 == 'XXX' or diag2 == 'XXX':
-      return X
-    elif diag1 == 'OOO' or diag2 == 'OOO':
-      return O
-
-    #  return None
-    return None
-
-
-def terminal(board):
-    """
-    Returns True if game is over, False otherwise.
-    """
-    # Game is over if it is a winning board or all tiles are full (no actions):
-
-    if winner(board) or not actions(board):
-      return True
-    else:
-      return False
-
-
-def utility(board):
-    """
-    Returns 1 if X has won the game, -1 if O has won, 0 otherwise.
-    """
-
-    if winner(board) == 'X':
-      return 1
-    elif winner(board) == 'O':
-      return -1
-    else:
-      return 0
-
-actions_explored = 0
-
-
-def minimax(board):
-   """
-    Returns the optimal action for the current player on the board.
-    """
-
-    global actions_explored
-    actions_explored = 0
-
-    def max_player(board, best_min = 10):
-        """
-    Returns player who has the next turn on a board.
-    """
-
-      global actions_explored
-
-      # If the game is over, return board value
-      if terminal(board):
-        return (utility(board), None)
-
-      #  the max value when min_player plays optimally
-      value = -10
-      best_action = None
-
-
-      # Get set of actions and then select a random one until list is empty:
-      action_set = actions(board)
-
-      while len(action_set) > 0:
-        action = random.choice(tuple(action_set))
-        action_set.remove(action)
-
-        # A-B Pruning skips calls to min_player if lower result already found down
-        if best_min <= value:
-          break
-
-        actions_explored += 1
-        min_player_result = min_player(result(board, action), value)
-        if min_player_result[0] > value:
-          best_action = action
-          value = min_player_result[0]
-
-      return (value, best_action)
-
-
-    def min_player(board, best_max = -10):
-      """ Helper function to minimise score for 'O' player """
-
-      global actions_explored
-
-      if terminal(board):
-        return (utility(board), None)
-
-      value = 10
-    
-      best_action = None
-
-     
-      action_set = actions(board)
-
-        
-      while len(action_set) > 0:
-        action = random.choice(tuple(action_set))
-        action_set.remove(action)
-
-        
-        if best_max >= value:
-          break
-
-        
-        actions_explored += 1
-        max_player_result = max_player(result(board, action), value)
-        if max_player_result[0] < value:
-          best_action = action
-          value = max_player_result[0]
-
-      return (value, best_action)
-
-
-    # return None:
-    if terminal(board):
-      return None
-
-    if player(board) == 'X':
-      print('AI is exploring possible actions...')
-      best_move = max_player(board)[1]
-      print('Actions explored by AI: ', actions_explored)
-      return best_move
-    else:
-      print('AI is exploring possible actions...')
-      best_move = min_player(board)[1]
-      print('Actions explored by AI: ', actions_explored)
-      return best_move
+    pygame.display.flip()
